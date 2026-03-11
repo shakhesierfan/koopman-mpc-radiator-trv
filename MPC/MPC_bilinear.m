@@ -1,11 +1,9 @@
 clear; clc;
 
 import casadi.*
-%load('solar_data2.mat')
 load('T0.mat')
-load('data_st.mat')
-%load('bi_model1502_v2.mat')
-load('2702_v2.mat');
+load('solar.mat')
+load('learned_bi.mat');
 lat = 51.652350; 
 lon = 5.649608;
 
