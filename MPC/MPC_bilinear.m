@@ -517,7 +517,6 @@ for k = 1:Nsim
 
     m  = numel(Iu);
     
-    % Build selector S so that S*z = z(Iu)
     Ssel = zeros(m, nObs);
     Ssel(sub2ind([m,nObs], (1:m).', Iu(:))) = 1;
     
@@ -526,7 +525,6 @@ for k = 1:Nsim
     Pz_pred = Fk * Pz * Fk.' + Qz;
     Pz_pred = 0.5*(Pz_pred + Pz_pred.');
     
-    % (optional but recommended) apply mask/clamps to covariance
     M = diag(mask);
     Pz_pred = M*Pz_pred*M;
     Pz_pred(1,:) = 0;  Pz_pred(:,1) = 0;   % since z(1) forced to 1
@@ -551,17 +549,13 @@ for k = 1:Nsim
     
     Pz = 0.5*(Pz + Pz.');
     
-    % enforce your deterministic constraints again
     z_upd = z_upd .* mask;
     z_upd(1) = 1;
     
-    % --- Save x estimate from updated z
     x_upd_norm = Ck_bi*z_upd;
     x_upd_phys = x_upd_norm .* xsig + xmu;
     
     x_hat(:,k+1) = x_upd_phys;   
-% ----- Re-lift updated x -> z_hat for the next iteration (consistency)
-    %x_upd_norm = (x_upd_phys - xmu)./xsig;
 
 
 end
@@ -596,7 +590,7 @@ plot(t, x_hat(vec_idx_zone(4),:) - T_to_K, ...
 plot(t, x_hat(vec_idx_zone(5),:) - T_to_K, ...
     'Color',C(5,:), 'LineStyle',LS{5}, 'LineWidth',3);
 
-% ---- Comfort bounds (neutral, high contrast)
+% ---- Comfort bounds
 plot(t(1:end), Tmin(1:Nsim+1) - T_to_K, ...
     'k:', 'LineWidth', 1);
 plot(t(1:end), Tmax(1:Nsim+1) - T_to_K, ...
@@ -621,20 +615,16 @@ legend({'$T_{\mathrm{z},1}$','$T_{\mathrm{z},2}$','$T_{\mathrm{z},3}$','$T_{\mat
 
 
 grid on
-%figure('Color','w');
-% ===== 3-y-axis plot (Tsupply left, To right, qsol far-right) =====
-% Drop-in script: keeps everything INSIDE the figure so PNG export won’t clip.
 
 figure('Color','w');%,'Units','pixels','Position',[100 100 700 520]);
 
-% ---------- Layout (all axes stay within [0..1]) ----------
 left   = 0.10;
 bottom = 0.14;
 height = 0.78;
 
-mainW  = 0.62;   % main plot width (leave space on right for extra y-axis + label)
-gap    = 0.11;   % space between main axes and solar axis
-solW   = 0.001;  % thin axis for solar scale
+mainW  = 0.62;
+gap    = 0.11;
+solW   = 0.001;
 
 % Main axes (temps with yyaxis)
 ax1 = axes('Position',[left bottom mainW height]);
@@ -677,15 +667,13 @@ axSol.XColor = 'none';
 h3 = plot(axSol, t, sol(1,1:numel(t)), ':', 'LineWidth',1.6);
 h3.Color = [0.4660 0.6740 0.1880];
 
-% Let MATLAB pick solar y-limits and hide overlay y-axis
 yl = ylim(axSol);
 axSol.YLim   = yl;
 axSol.YTick  = [];
 axSol.YColor = 'none';
 
-% ---------- Axis-only far-right y-axis for solar scale ----------
 xR = left + mainW + gap;
-xR = min(xR, 0.98-solW);   % safety: never allow it to go outside the figure
+xR = min(xR, 0.98-solW); 
 
 axSolR = axes('Position',[xR bottom solW height], ...
               'Color','none','YAxisLocation','right','Box','off');
@@ -705,7 +693,7 @@ legend(ax1,[h1 h2 h3], ...
     '$T_{\mathrm{sup}}$','$T_{\mathrm{o}}$','$q_{\mathrm{sol}}$', ...
     'Interpreter','latex','Location','north','FontSize',13);
 
-% ---------- Export (no clipping) ----------
+% ---------- Export ----------
 set(gcf,'PaperPositionMode','auto');
 %exportgraphics(gcf,'myplot.png','Resolution',300);
 
