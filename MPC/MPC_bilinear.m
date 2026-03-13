@@ -293,36 +293,29 @@ Tmax = 20 + T_to_K + (23-20)*w;
 
 
 %% MPC
-%Tref = 0.5*(Tmin + Tmax);
 
 cost_accum = 0;
 
 nObs = size(A_bi, 1);
 
 mask = ones(nObs,1);
-mask(badZ) = 0;      % numeric double, not symbolic
-mask(1) = 1;         % keep bias term
+mask(badZ) = 0;
+mask(1) = 1;
 mask = full(mask);
 
 time_av = zeros(Nsim,1);
 err = 0;
 
-%rho = max(abs(eig(A_bi)));
-%eps_stab = 1e-3;          % you choose, e.g. 1e-3 or 1e-2
-
-%if rho >= 1 - eps_stab
-%    A_bi = ((1 - eps_stab) / (rho + 1e-12)) * A_bi;
-%end
 
 % ---------- Lifted model sizes ----------
 Hx = zeros(nzone, n_states);
 Hx(sub2ind([nzone,n_states], (1:nzone)', vec_idx_zone(:))) = 1;
 
-% Covariances in x-space (TUNE THESE)
-Rx = (0.2^2) * eye(nzone);          % measurement noise variance (degC^2)
-Qz = 1e-3 * eye(nObs);          % process noise on x (regularizes unmeasured states)
+% Covariances in x-space
+Rx = (0.2^2) * eye(nzone);
+Qz = 1e-3 * eye(nObs);
 
-Pz = 1 * eye(nObs);             % initial covariance in x-space
+Pz = 1 * eye(nObs);
 
 for k = 1:Nsim
 
@@ -380,24 +373,8 @@ for k = 1:Nsim
         end
     end
 
-    %J_trk = 0;
-    %for j = 1:Np
-    %    kk = k + j - 1;
-    %    e = x_pred(vec_idx_zone, j) - Tref(kk);
-    %    e(3) = 0;
-    %    J_trk = J_trk + 1e-1*(e.'*e);
-    %end
 
 
-    %if k > 1
-        %DU = Tsupply(2:end) - Tsupply(1:end-1);
-        %J_smooth = DU'*DU;
-
-    %    Jreg_du = ... %1* J_smooth +...
-    %        1e-3*(Tsupply(1) - Tsupply_opt_vec(1, k-1))'*(Tsupply(1) - Tsupply_opt_vec(1, k-1)) ;
-    %else
-    %    Jreg_du = 0;
-    %end
 
     w_input = 1e-3;
 
@@ -468,14 +445,6 @@ for k = 1:Nsim
     viol2(3) = 0;
     
     Jviol = w_slack_low*(viol1.'*viol1) + w_slack_high*(viol2.'*viol2);
-    %if k > 1
-    %    Jreg = 1e-3*(Tsupply_opt - Topt_prev)'*(Tsupply_opt - Topt_prev);
-    %else
-    %    Jreg = 0;
-    %end
-    %e_real = y - Tref(k+1);
-    %e_real(3) = 0;
-    %J_trk_real = 1e-1*(e_real.'*e_real);
     cost_accum = cost_accum + Ju + Jviol; %+ Jreg; %+ J_trk_real;
 
     Topt_prev = Tsupply_opt;
@@ -656,7 +625,6 @@ h2.Color = [0.8500 0.3250 0.0980];
 ax1.YColor = h2.Color;
 ylabel(ax1,'$T_{\mathrm{o}}\,[^{\circ}\mathrm{C}]$','Interpreter','latex','FontSize',14);
 
-% ---------- Overlay axes for qsol curve (aligned with ax1) ----------
 axSol = axes('Position',ax1.Position,'Color','none');
 hold(axSol,'on'); box(axSol,'off');
 
@@ -685,15 +653,12 @@ axSolR.YColor = h3.Color;
 ylabel(axSolR,'$q_{\mathrm{sol}}\ (\mathrm{north\ walls})\,[\mathrm{W/m^2}]$', ...
     'Interpreter','latex','FontSize',14);
 
-% ---------- Link x-axes so zoom/pan stays aligned ----------
 linkaxes([ax1 axSol],'x');
 
-% ---------- Legend ----------
 legend(ax1,[h1 h2 h3], ...
     '$T_{\mathrm{sup}}$','$T_{\mathrm{o}}$','$q_{\mathrm{sol}}$', ...
     'Interpreter','latex','Location','north','FontSize',13);
 
-% ---------- Export ----------
 set(gcf,'PaperPositionMode','auto');
 %exportgraphics(gcf,'myplot.png','Resolution',300);
 
