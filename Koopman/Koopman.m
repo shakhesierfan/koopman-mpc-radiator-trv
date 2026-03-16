@@ -1386,7 +1386,7 @@ function P = build_lift_params(nx, nzone, Qnom, vec_idx_zone, Tdes, xmu, xsig, A
     Qnom_rad = zeros(numel(rad_zone),1);
     k = 0;
     for z = 1:nzone
-        qz = Qnom{z};          % e.g. [1700 1700 ...] or [] 
+        qz = Qnom{z};
         for i = 1:numel(qz)
             k = k + 1;
             Qnom_rad(k) = qz(i);
@@ -1410,16 +1410,12 @@ function P = build_lift_params(nx, nzone, Qnom, vec_idx_zone, Tdes, xmu, xsig, A
     P.idx_Tw   = nx + P.nrad + nzone + (1:P.nrad);
 
 
-    % --- indices of Tsen in the FULL state vector
     idx_Tsen_global = nx + P.nrad + (1:nzone);
 
-    % --- store physical setpoints
     P.Tdes_phys = Tdes(:);
 
-    % --- zone-wise sigmas for sensor temps
     P.sig_Tsen = xsig(idx_Tsen_global);   % [nzone x 1]
 
-    % --- normalized Tdes per radiator
     Tdes_norm = zeros(P.nrad,1);
     for r = 1:P.nrad
         z = P.rad_zone(r);
