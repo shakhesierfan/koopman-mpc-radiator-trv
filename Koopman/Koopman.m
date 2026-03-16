@@ -1413,13 +1413,13 @@ function P = build_lift_params(nx, nzone, Qnom, vec_idx_zone, Tdes, xmu, xsig, A
     % --- indices of Tsen in the FULL state vector
     idx_Tsen_global = nx + P.nrad + (1:nzone);
 
-    % --- store physical setpoints too (recommended)
+    % --- store physical setpoints
     P.Tdes_phys = Tdes(:);
 
     % --- zone-wise sigmas for sensor temps
     P.sig_Tsen = xsig(idx_Tsen_global);   % [nzone x 1]
 
-    % --- normalized Tdes per radiator (matched to its zone scaling)
+    % --- normalized Tdes per radiator
     Tdes_norm = zeros(P.nrad,1);
     for r = 1:P.nrad
         z = P.rad_zone(r);
@@ -1518,11 +1518,6 @@ end
 
 
 function u = koopman_u_slowsteps_zoh(tgrid, Ts, umin, umax)
-%KOOPMAN_U_SLOWSTEPS_ZOH  Slow persistently-exciting ZOH input for building thermal systems
-%
-% u = koopman_u_slowsteps_zoh(tgrid, Ts, umin, umax)
-% - u is constant within Ts
-% - u changes only every M samples (dwell time = M*Ts)
 
     tgrid = tgrid(:);
     t0 = tgrid(1);
@@ -1531,25 +1526,19 @@ function u = koopman_u_slowsteps_zoh(tgrid, Ts, umin, umax)
     N = floor((tf - t0)/Ts) + 1;     % number of Ts samples
     n = (0:N-1)';
 
-    % ---- choose dwell length (in samples) for slow dynamics ----
-    % Rule of thumb for buildings: 6..24 samples (e.g., 1..6 hours if Ts=15min)
     M = max(6, min(24, floor(N/20)));   % adaptive default; change if you know better
 
-    % Number of plateaus
     K = ceil(N / M);
 
-    % Random levels in [-1, 1], then scale to [umin, umax]
     levels = 2*rand(K,1) - 1;
 
     mid  = (umin + umax)/2;
     half = (umax - umin)/2;
     levels = mid + half*levels;
 
-    % Expand each level for M samples (ZOH at Ts)
     uS = repelem(levels, M);
     uS = uS(1:N);
 
-    % Map samples to tgrid (if tgrid is finer than Ts)
     idx = floor((tgrid - t0)/Ts) + 1;
     idx = min(max(idx,1),N);
     u = uS(idx);
@@ -1559,26 +1548,11 @@ end
 
 
 function [u, k] = generate_sin_random_peaks(tgrid, Ts, umin, umax, varargin)
-%GENERATE_SIN_RANDOM_PEAKS
-% Bounded sine input that:
-%   - starts at umin
-%   - has random number of peaks
-%
-% Optional name-value:
-%   'MinCycles' : minimum number of cycles (default = 1)
-%   'MaxCycles' : maximum number of cycles (default = 5)
-%   'Seed'      : RNG seed
-%
-% Outputs:
-%   u : control input
-%   k : number of cycles used
 
-    % ---- defaults ----
     kmin = 1;
     kmax = 5;
     seed = [];
 
-    % ---- parse options ----
     for i = 1:2:length(varargin)
         switch lower(varargin{i})
             case 'mincycles'
@@ -1592,35 +1566,28 @@ function [u, k] = generate_sin_random_peaks(tgrid, Ts, umin, umax, varargin)
         end
     end
 
-    % ---- RNG ----
     if ~isempty(seed)
         rng(seed);
     end
 
-    % ---- random number of cycles ----
     k = randi([kmin, kmax]);
 
-    % ---- scaling ----
     umid = (umax + umin)/2;
     A    = (umax - umin)/2;
 
-    % ---- compute frequency ----
+
     T_end = tgrid(end) - tgrid(1);
     omega = 2*pi*k / T_end;
 
-    % ---- force start at umin ----
     t0 = tgrid(1);
     phi = -pi/2 - omega*t0;
 
-    % ---- generate signal ----
     u = umid + A*sin(omega*tgrid + phi);
 
-    % ---- safety clip ----
     u = min(max(u, umin), umax);
 end
 
 function u = koopman_u_slowsteps_ramped(tgrid, Ts, umin, umax, M, ramp_frac)
-% Slow persistently-exciting input with smooth ramps between plateaus.
 
     if nargin < 5 || isempty(M)
         M = 24;
@@ -1641,8 +1608,7 @@ function u = koopman_u_slowsteps_ramped(tgrid, Ts, umin, umax, M, ramp_frac)
     half = (umax - umin)/2;
     levels = mid + half*(2*rand(K,1) - 1);
 
-    % ---- force first level near umin (minimal change) ----
-    start_frac = 0.05; % 5% above umin (change to e.g. 0.01 if you want closer)
+    start_frac = 0.05;
     levels(1) = umin + start_frac*(umax - umin);
 
     ramp_len = max(1, min(M-1, round(ramp_frac*M)));
@@ -1682,30 +1648,7 @@ function u = koopman_u_slowsteps_ramped(tgrid, Ts, umin, umax, M, ramp_frac)
 end
 
 function u = make_piecewise_exciting_u(tgrid, Ts, umin, umax)
-%MAKE_PIECEWISE_EXCITING_U  Piecewise-constant exciting input (ZOH-friendly)
-%
-% Ensures u(t) is constant on each sampling interval [kTs, (k+1)Ts),
-% i.e., u changes only at sample instants. Designed for slow thermal systems.
-%
-% Inputs
-%   tgrid : [N x 1] or [1 x N] time stamps [s] (typically uniform, step Ts)
-%   Ts    : sampling time [s]
-%   umin  : lower bound
-%   umax  : upper bound
-%
-% Output
-%   u     : [N x 1] piecewise-constant sequence aligned with tgrid
-%
-% Notes
-%   - If tgrid is uniform with step Ts, this is exact ZOH.
-%   - If tgrid is not perfectly uniform, the function still guarantees
-%     constant values per "sample index" computed from round(t/Ts).
-%
-% Example:
-%   tgrid = (0:Ts:48*3600)';  % 2 days
-%   u = make_piecewise_exciting_u(tgrid, Ts, 45, 75);
 
-    % -------- checks / setup --------
     if umax <= umin
         error('umax must be > umin.');
     end
@@ -1716,25 +1659,21 @@ function u = make_piecewise_exciting_u(tgrid, Ts, umin, umax)
         return;
     end
 
-    % Map each time stamp to a sample index (0,1,2,...)
-    % This makes u constant between sampling instants even if tgrid has jitter.
     kidx = round(tgrid./Ts);           % sample index for each tgrid entry
     kmin = kidx(1);
     kmax = kidx(end);
     K = kmax - kmin + 1;               % number of sample instants covered
 
-    % We will generate u_k for k = 1..K and then expand to all tgrid points.
     u_k = zeros(K,1);
 
-    % -------- tuning parameters (edit if you like) --------
-    slow_min_h = 2.0;      % slow baseline dwell [hours]
+    slow_min_h = 2.0;
     slow_max_h = 6.0;
 
-    fast_min_h = 0.25;     % fast dither dwell [hours]  (15 min)
-    fast_max_h = 0.50;     %                          (30 min)
+    fast_min_h = 0.25;
+    fast_max_h = 0.50;
 
-    fast_amp = 0.08*(umax-umin);  % dither amplitude (8% of range)
-    du_max   = inf;               % max change per sample (set e.g. 2.0 to limit)
+    fast_amp = 0.08*(umax-umin);
+    du_max   = inf; 
     % ------------------------------------------------------
 
     slow_min = max(1, round(slow_min_h*3600/Ts));
@@ -1742,18 +1681,15 @@ function u = make_piecewise_exciting_u(tgrid, Ts, umin, umax)
     fast_min = max(1, round(fast_min_h*3600/Ts));
     fast_max = max(fast_min, round(fast_max_h*3600/Ts));
 
-    % -------- generate piecewise-constant sequence on sample grid --------
     u_k(1) = umin + (umax-umin)*rand;
 
     k = 1;
     while k <= K
-        % Slow baseline segment
         slow_dwell = randi([slow_min, slow_max]);
         u_slow = umin + (umax-umin)*rand;
 
         kend = min(k + slow_dwell - 1, K);
 
-        % Inside slow segment, embed faster piecewise-constant dither
         kk = k;
         while kk <= kend
             fast_dwell = randi([fast_min, fast_max]);
@@ -1769,17 +1705,14 @@ function u = make_piecewise_exciting_u(tgrid, Ts, umin, umax)
         k = kend + 1;
     end
 
-    % -------- clip to bounds --------
     u_k = min(max(u_k, umin), umax);
 
-    % -------- optional slew-rate limit (still piecewise-constant) --------
     if isfinite(du_max)
         for k = 2:K
             u_k(k) = min(max(u_k(k), u_k(k-1) - du_max), u_k(k-1) + du_max);
         end
     end
 
-    % -------- expand u_k back to tgrid (ZOH) --------
     u = zeros(N,1);
     for i = 1:N
         kk = kidx(i) - kmin + 1;   % map to 1..K
@@ -1789,10 +1722,6 @@ function u = make_piecewise_exciting_u(tgrid, Ts, umin, umax)
 end
 
 function Kmat = fit_edmd_ridge_svd(Z1, Theta, lam)
-    %G = Theta*Theta.';
-
-    %Kmat = (Z1*Theta.') / (G + lam*eye(size(G,1)));
-
 
     [U,S,V] = svd(Theta,'econ');
     s = diag(S);
@@ -1809,7 +1738,6 @@ function Kmat = fit_edmd_ridge_svd(Z1, Theta, lam)
 end
 
 
-%(A_bi,B_bi,N_bi,BT0_bi,Bint_bi,Bsol_bi
 function [rmse, xhat_sim] = rollout_rmse_bilinear_Np( ...
     Ak,Bk,Nk,Iu,ET0k,EIntk,ESolk,Ck, ...
     Xva,X1va,Uva,Dva, xmu,xsig, umu,usig, dmu,dsig, ...
@@ -1822,29 +1750,22 @@ function [rmse, xhat_sim] = rollout_rmse_bilinear_Np( ...
     nExp = numel(Xva);
     se = 0; cnt = 0;
 
-    % keep original 1-step sequential simulation output (optional)
     xhat_sim = [];
     idx_sim = 0;
 
     for e = 1:nExp
-        Xk  = Xva{e};     % x(:,k)
-        Xk1 = X1va{e};    % x(:,k+1) aligned with U(:,k), D(:,k)
-        U   = Uva{e};     % assumed U(k) scalar
-        D   = Dva{e};     % disturbances columns
+        Xk  = Xva{e};
+        Xk1 = X1va{e};
+        U   = Uva{e};
+        D   = Dva{e};
 
-        % for xhat_sim (1-step forward sequential sim like original)
         idx_sim = idx_sim + 1;
         xhat_sim(:, idx_sim) = Xk(:,1);
 
         Nsteps = min([size(U,2), size(D,2), size(Xk,2), size(Xk1,2)]);
         if Nsteps <= 0, continue; end
 
-        % ---------- (A) 1-step sequential sim, same as your original ----------
-        %x0n = (Xk(:,1) - xmu)./xsig;
-        %z0  = lift_poly(x0n, liftP, useLinearLift);
-        %zk_seq = (z0 - zmu)./zsig;
-        %zk_seq(badZ) = 0;
-        %zk_seq(1) = 1;
+
         for k = 1:Nsteps
             xk0n = (Xk(:,k) - xmu)./xsig;
             z0   = lift_poly(xk0n, liftP, useLinearLift);
@@ -1875,10 +1796,6 @@ function [rmse, xhat_sim] = rollout_rmse_bilinear_Np( ...
 
             xhat_sim(:, idx_sim) = xhat;
             
-            %xtrue = Xk1(:, k); %~~~~~~~~~~~~~~~~~~~~~
-            %err = xhat - xtrue;
-            %se  = se + sum(err(:).^2);
-            %cnt = cnt + numel(err);
 
         end
 
@@ -1894,15 +1811,13 @@ function [rmse, xhat_sim] = rollout_rmse_bilinear_Np( ...
             %    continue;
             %end
 
-            % initialize with TRUE x at current time k0
             xk0n = (Xk(:,k0) - xmu)./xsig;
             z0   = lift_poly(xk0n, liftP, useLinearLift);
             zk   = (z0 - zmu)./zsig;
             zk(badZ) = 0;
             zk(1) = 1;
-            % roll open-loop for h = 1..maxH
             for h = 1:maxH
-                kk = k0 + h - 1; % input/disturbance index to go from (k0+h-1)->(k0+h)
+                kk = k0 + h - 1;
 
                 un = (U(kk) - umu)./usig;
                 dn = (D(:,kk) - dmu)./dsig;
