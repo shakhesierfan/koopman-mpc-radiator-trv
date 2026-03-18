@@ -1856,7 +1856,7 @@ function [xhat_best_bi, best_lam] = find_best_lam(Z1trs, Theta, Iu, Ck, Xva, X1v
     xmu, xsig, umu, usig, dmu, dsig, zmu, zsig, useLinearLift, Np, badZ)
 
     smax = svds(Theta,1);
-    lams = 2.56e+00; %logspace(-12, -1, 40) * (smax^2);
+    lams = logspace(-12, -1, 40) * (smax^2);
     %lams = 3.52e-01;
     rmse_val = zeros(size(lams));
     
