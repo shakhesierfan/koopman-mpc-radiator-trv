@@ -3,7 +3,7 @@ clear; clc;
 import casadi.*
 load('T0.mat')
 load('solar.mat')
-load('learned_bi.mat');
+load('learned_matrices.mat');
 lat = 51.652350; 
 lon = 5.649608;
 
