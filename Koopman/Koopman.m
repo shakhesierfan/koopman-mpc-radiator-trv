@@ -212,7 +212,7 @@ rhs_base = @(t,s,Tsup_fun,T0h,Inth,Solh) full_rhs( ...
 
 %% Collecting Data
 
-M = 500;
+M = 10;
 Ts = Ts_hrs*60*60;          % sampling time [s]
 Tend = 2*24*3600;           % per experiment duration [s]
 tgrid = (0:Ts:Tend).';
@@ -703,15 +703,14 @@ fprintf('  RMSE global        : %.6f\n', rmse_LTI);
 
 %% ----- Plotting ---------
 
-N = 1000;
 figure;
-plot(x_sim(end,N:2*N), 'LineWidth',1.5); hold on;
-plot(xhat_best_bi(end,N:2*N), 'LineWidth',1.5); hold on;
-plot(xhat_best_lin(end,N:2*N), 'LineWidth',1.5); hold on;
-plot(xhat_best_linlift(end,N:2*N), '--', 'LineWidth',1.5); hold on;
-%plot(xhat_sim_LTI(1,1:N), '--', 'LineWidth',1.5, 'Color','g'); hold on;
-plot(xhat_sim_LTV(end,N:2*N), '*', 'LineWidth',1.5); hold on;
-legend('Nonlinear','Koopman', 'Koopman (linear)', 'Koopman (linear lifting)', 'LTV Lin');
+plot(x_sim(end,:), 'LineWidth',1.5); hold on;
+plot(xhat_best_bi(end,:), 'LineWidth',1.5); hold on;
+plot(xhat_best_lin(end,:), 'LineWidth',1.5); hold on;
+plot(xhat_best_linlift(end,:), '--', 'LineWidth',1.5); hold on;
+%plot(xhat_sim_LTI(end,:), '--', 'LineWidth',1.5, 'Color','g'); hold on;
+%plot(xhat_sim_LTV(end,:), '*', 'LineWidth',1.5); hold on;
+legend('Nonlinear','Koopman', 'Koopman (linear)', 'Koopman (linear lifting)');%, 'LTI Lin', 'LTV Lin');
 
 
 
