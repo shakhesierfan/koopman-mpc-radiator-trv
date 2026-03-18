@@ -212,7 +212,7 @@ rhs_base = @(t,s,Tsup_fun,T0h,Inth,Solh) full_rhs( ...
 
 %% Collecting Data
 
-M = 10;
+M = 500;
 Ts = Ts_hrs*60*60;          % sampling time [s]
 Tend = 2*24*3600;           % per experiment duration [s]
 tgrid = (0:Ts:Tend).';
